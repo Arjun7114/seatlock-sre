@@ -1,0 +1,45 @@
+name: seatlock-sut
+
+# Dependencies for the seatlock service-under-test: Postgres + Redis.
+# Mirrors seatlock's own docker-compose.yml so seatlock-sre is self-contained.
+# The Go service itself is NOT containerized here — in Phase 0 it runs on the
+# host via `go run ./cmd/seatlock` from a seatlock checkout. A container image
+# for the service is built in Phase 1, when it is deployed to Kubernetes.
+#
+# Container names are kept identical to seatlock's (seatlock-db / seatlock-redis)
+# so seatlock's documented seed command (docker exec -i seatlock-db ...) works
+# unchanged. Run EITHER this compose OR seatlock's own — not both (port clash).
+
+services:
+  db:
+    image: postgres:17
+    container_name: seatlock-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: seatlock
+    ports:
+      - "5432:5432"
+    volumes:
+      - seatlock_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seatlock -d seatlock"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: seatlock-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  seatlock_pgdata:
