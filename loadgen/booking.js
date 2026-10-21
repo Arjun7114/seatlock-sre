@@ -24,11 +24,12 @@ export const options = {
         },
     },
     thresholds: {
-        seatlock_confirm_ms: ['p(95)<500'], // the latency SLO target, informational
+        seatlock_confirm_ms: ['p(95)<500'],
     },
 };
 
-// Sign up one user and share its token across all VUs.
+// Run the server with RATE_LIMIT_PER_MINUTE=0 for load tests, so seatlock's
+// per-IP limiter doesn't throttle traffic coming from this single host.
 export function setup() {
     const email = `loadgen+${Date.now()}@test.com`;
     const res = http.post(
@@ -44,10 +45,10 @@ export default function (data) {
     const headers = { Authorization: `Bearer ${data.token}` };
     const seatID = CONTEND ? 1 : ((__VU - 1) % SEATS) + 1;
 
-    // Step 1: hold the seat (status ignored, like seatlock's own loadtest)
+    // Step 1: hold the seat
     http.post(`${BASE}/v1/seats/${seatID}/hold`, null, { headers });
 
-    // Step 2: confirm — this is the measured request
+    // Step 2: confirm — the measured request
     const res = http.post(`${BASE}/v1/seats/${seatID}/confirm`, null, { headers });
     confirmMs.add(res.timings.duration);
 
